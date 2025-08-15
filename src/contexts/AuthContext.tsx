@@ -1,0 +1,134 @@
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { Session, User } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
+
+interface AuthContextType {
+  user: User | null
+  session: Session | null
+  loading: boolean
+  signOut: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+
+interface AuthProviderProps {
+  children: React.ReactNode
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Get initial session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+
+    getInitialSession()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const signOut = async () => {
+    try {
+      // Clear Google OAuth session first
+      if ((window as any).google?.accounts?.id) {
+        // Disable auto-select to force account picker
+        (window as any).google.accounts.id.disableAutoSelect()
+        
+        // Clear any Google Sign-In credentials
+        if ((window as any).google?.accounts?.id?.revoke) {
+          try {
+            await new Promise<void>((resolve) => {
+              (window as any).google.accounts.id.revoke(user?.email || '', () => {
+                resolve()
+              })
+            })
+          } catch (revokeError) {
+            console.log('Google revoke not available or failed:', revokeError)
+          }
+        }
+      }
+      
+      // Sign out from Supabase with global scope to clear all sessions
+      await supabase.auth.signOut({ scope: 'global' })
+      
+      // Clear any remaining session data
+      setUser(null)
+      setSession(null)
+      
+      // Clear all browser storage
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Clear all cookies, including Google's
+      const cookies = document.cookie.split(";")
+      cookies.forEach((c) => {
+        const eqPos = c.indexOf("=")
+        const name = eqPos > -1 ? c.substring(0, eqPos).trim() : c.trim()
+        
+        // Clear cookies for different domains and paths
+        const domains = [window.location.hostname, '.' + window.location.hostname, '.google.com', '.googleapis.com']
+        const paths = ['/', '/auth']
+        
+        domains.forEach(domain => {
+          paths.forEach(path => {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path}; domain=${domain}`
+          })
+        })
+      })
+      
+      // Clear any IndexedDB storage
+      if (window.indexedDB) {
+        try {
+          const databases = await window.indexedDB.databases()
+          databases.forEach(db => {
+            if (db.name) {
+              window.indexedDB.deleteDatabase(db.name)
+            }
+          })
+        } catch (error) {
+          console.log('IndexedDB cleanup failed:', error)
+        }
+      }
+      
+      // Force complete page refresh to clear any cached states
+      window.location.href = window.location.origin
+    } catch (error) {
+      console.error('Error during sign out:', error)
+      // Even if there's an error, still reload to clear the app state
+      window.location.href = window.location.origin
+    }
+  }
+
+  const value = {
+    user,
+    session,
+    loading,
+    signOut,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
