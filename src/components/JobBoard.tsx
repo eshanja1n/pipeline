@@ -10,6 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { LogOut, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Logo } from './ui/logo';
 import { Job, JobStatus } from '../types/job';
 import { JobColumn } from './JobColumn';
 import { JobCard } from './JobCard';
@@ -96,9 +97,12 @@ export const JobBoard: React.FC = () => {
         <header className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                pipeline :pipelines:
-              </h1>
+              <div className="flex items-center gap-3 mb-2">
+                <Logo size="md" className="filter-green-only" />
+                <h1 className="text-4xl font-bold text-gray-900">
+                  pipeline
+                </h1>
+              </div>
               <p className="text-gray-600 text-lg">
                 Track your job applications and their progress through different stages
               </p>

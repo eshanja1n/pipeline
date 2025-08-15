@@ -2,6 +2,7 @@ import React from 'react'
 import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '../lib/supabase'
+import { Logo } from './ui/logo'
 // import { SimpleParticles } from './ui/simple-particles'
 import { Particles } from "./magicui/particles";
 
@@ -17,9 +18,12 @@ export const LoginPage: React.FC = () => {
       />
       <div className="max-w-md w-full space-y-8 relative z-10">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Welcome to Pipeline
-          </h2>
+          <div className="flex items-center justify-center gap-3 mt-6 mb-4">
+            <Logo size="lg" className="filter-green-only" />
+            <h2 className="text-3xl font-bold text-gray-900">
+              pipeline
+            </h2>
+          </div>
           <p className="mt-2 text-sm text-gray-600">
             Sign in with your Gmail account to track your job applications
           </p>

@@ -28,14 +28,15 @@ export const MagicCard: React.FC<MagicCardProps> = ({
       divRef.current?.style.setProperty("--x", `${x}px`);
       divRef.current?.style.setProperty("--y", `${y}px`);
     },
-    [gradientSize, gradientColor, gradientOpacity]
+    []
   );
 
   useEffect(() => {
-    divRef.current?.addEventListener("mousemove", handleMouseMove);
+    const currentDiv = divRef.current;
+    currentDiv?.addEventListener("mousemove", handleMouseMove);
 
     return () => {
-      divRef.current?.removeEventListener("mousemove", handleMouseMove);
+      currentDiv?.removeEventListener("mousemove", handleMouseMove);
     };
   }, [handleMouseMove]);
 

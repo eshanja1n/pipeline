@@ -21,4 +21,14 @@ body {
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
+  
+  .filter-green-only {
+    /* Remove white/transparent background and enhance green colors */
+    filter: brightness(1.1) contrast(1.2) saturate(1.3);
+    mix-blend-mode: multiply;
+    background: transparent;
+    /* Alternative approach - mask out non-green colors */
+    -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%);
+    mask-image: linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%);
+  }
 }
