@@ -1,46 +1,108 @@
-# Getting Started with Create React App
+# Job Application Tracker
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A minimalist job board application built with React, TypeScript, and Tailwind CSS that helps you track your job applications through different stages.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **4-Column Kanban Board**: Track jobs through Applied, Interview, Offer, and Rejected stages
+- **Drag & Drop**: Easily move job cards between columns
+- **Clean Design**: Minimalist UI with modern typography (Inter font)
+- **Responsive**: Works on desktop and mobile devices
+- **TypeScript**: Full type safety throughout the application
+- **Magic UI Inspired Components**: Clean, modern component library
 
-### `npm start`
+## Technology Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- **React 19** with TypeScript
+- **@dnd-kit** for drag and drop functionality
+- **Tailwind CSS** for styling
+- **Lucide React** for icons
+- **Custom UI Components** inspired by Magic UI
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Getting Started
 
-### `npm test`
+1. **Navigate to the project:**
+   ```bash
+   cd job-board
+   ```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-### `npm run build`
+3. **Start the development server:**
+   ```bash
+   npm start
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+4. **Open your browser to:**
+   ```
+   http://localhost:3000
+   ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Project Structure
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+job-board/src/
+├── components/
+│   ├── ui/                 # Reusable UI components
+│   │   ├── card.tsx
+│   │   └── badge.tsx
+│   ├── JobBoard.tsx        # Main board component
+│   ├── JobColumn.tsx       # Column container
+│   └── JobCard.tsx         # Individual job card
+├── data/
+│   └── sampleJobs.ts       # Sample job data
+├── lib/
+│   └── utils.ts           # Utility functions
+├── types/
+│   └── job.ts             # TypeScript types
+└── App.tsx                # Root component
+```
 
-### `npm run eject`
+## Features Overview
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### Job Card Information
+Each job card displays:
+- Job title and company
+- Location
+- Application date
+- Salary range (if available)
+- Job description preview
+- Status badge with color coding
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Column Status Colors
+- **Applied**: Blue theme
+- **Interview**: Yellow theme
+- **Offer**: Green theme
+- **Rejected**: Red theme
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Drag & Drop Functionality
+- Drag job cards between columns to update their status
+- Smooth animations and visual feedback
+- Maintains order within columns
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## Future Enhancements
 
-## Learn More
+This frontend is ready for backend integration to:
+- Connect to email inbox for automatic job detection
+- Save job data to a database
+- Add user authentication
+- Export data functionality
+- Email notifications and reminders
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Sample Data
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+The application comes pre-loaded with 8 sample job applications across all four stages to demonstrate the functionality.
+
+## Development
+
+To modify the application:
+
+1. **Add new job statuses**: Update the `JobStatus` type in `src/types/job.ts`
+2. **Customize styling**: Modify Tailwind classes or add custom CSS
+3. **Add new fields**: Extend the `Job` interface and update components accordingly
+4. **Change color scheme**: Update the color mappings in `JobColumn.tsx` and `JobCard.tsx`
+
+The project is now complete and ready to run!
