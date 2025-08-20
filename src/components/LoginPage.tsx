@@ -52,6 +52,13 @@ export const LoginPage: React.FC = () => {
             onlyThirdPartyProviders
             redirectTo={`${window.location.origin}`}
             socialLayout="horizontal"
+            queryParams={{
+              access_type: 'offline',
+              prompt: 'consent',
+            }}
+            providerScopes={{
+              google: 'openid email profile https://www.googleapis.com/auth/gmail.readonly'
+            }}
           />
         </div>
         

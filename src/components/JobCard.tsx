@@ -61,12 +61,6 @@ export const JobCard: React.FC<JobCardProps> = ({ job }) => {
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <Avatar className="h-10 w-10 shrink-0">
-            {job.companyLogo ? (
-              <AvatarImage 
-                src={job.companyLogo} 
-                alt={`${job.company} logo`}
-              />
-            ) : null}
             <AvatarFallback className="bg-gray-100 text-gray-600 font-semibold">
               {job.company.charAt(0).toUpperCase()}
             </AvatarFallback>
