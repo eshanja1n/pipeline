@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -8,13 +8,14 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, RefreshCw, Plus, Mail, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Logo } from './ui/logo';
 import { Job, JobStatus } from '../types/job';
 import { JobColumn } from './JobColumn';
 import { JobCard } from './JobCard';
-import { sampleJobs } from '../data/sampleJobs';
+import { useJobs } from '../hooks/useJobs';
+import { apiClient } from '../lib/apiClient';
 
 const columnTitles: Record<JobStatus, string> = {
   applied: 'Applied',
@@ -24,9 +25,19 @@ const columnTitles: Record<JobStatus, string> = {
 };
 
 export const JobBoard: React.FC = () => {
-  const { user, signOut } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>(sampleJobs);
+  const { user, session, signOut } = useAuth();
+  const { 
+    jobs, 
+    loading, 
+    error, 
+    refetch, 
+    updateJobStatus 
+  } = useJobs();
   const [activeJob, setActiveJob] = useState<Job | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [emailSyncEnabled, setEmailSyncEnabled] = useState(false);
+  const [loadingUserProfile, setLoadingUserProfile] = useState(true);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -36,13 +47,58 @@ export const JobBoard: React.FC = () => {
     })
   );
 
+  // Load user profile on mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        console.log('📋 Loading user profile...');
+        const response = await apiClient.getUserProfile();
+        console.log('✅ User profile loaded:', response.user);
+        
+        setEmailSyncEnabled(response.user.email_sync_enabled);
+      } catch (error) {
+        console.error('❌ Failed to load user profile:', error);
+      } finally {
+        setLoadingUserProfile(false);
+      }
+    };
+
+    loadUserProfile();
+  }, [user]);
+
+  const handleToggleEmailSync = async () => {
+    const newValue = !emailSyncEnabled;
+    
+    try {
+      console.log(`🔄 Toggling email sync: ${emailSyncEnabled ? 'DISABLE' : 'ENABLE'}`);
+      
+      const response = await apiClient.updateEmailSyncPreference(newValue);
+      console.log('✅ Email sync preference updated:', response);
+      
+      setEmailSyncEnabled(newValue);
+      setSyncMessage(`Email sync ${newValue ? 'enabled' : 'disabled'} successfully`);
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setSyncMessage(null), 3000);
+      
+    } catch (error) {
+      console.error('❌ Failed to update email sync preference:', error);
+      setSyncMessage(`Failed to ${newValue ? 'enable' : 'disable'} email sync: ${error}`);
+      
+      // Clear error message after 5 seconds
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const job = jobs.find(j => j.id === active.id);
     setActiveJob(job || null);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     
     setActiveJob(null);
@@ -73,13 +129,12 @@ export const JobBoard: React.FC = () => {
 
     // Only update if the status is actually changing
     if (activeJob.status !== newStatus) {
-      setJobs(prevJobs =>
-        prevJobs.map(job =>
-          job.id === activeId
-            ? { ...job, status: newStatus }
-            : job
-        )
-      );
+      try {
+        await updateJobStatus(activeJob.id, newStatus);
+      } catch (error) {
+        console.error('Failed to update job status:', error);
+        // You could show a toast notification here
+      }
     }
   };
 
@@ -90,6 +145,51 @@ export const JobBoard: React.FC = () => {
 
   const getJobsByStatus = (status: JobStatus) => 
     jobs.filter(job => job.status === status);
+
+  const handleSyncEmails = async () => {
+    console.log('📋 Debug session info:', {
+      hasSession: !!session,
+      providerToken: !!session?.provider_token,
+      providerRefreshToken: !!session?.provider_refresh_token,
+      accessToken: !!session?.access_token,
+      sessionKeys: session ? Object.keys(session) : [],
+    });
+
+    if (!session?.provider_token) {
+      setSyncMessage('No Gmail access token found. Please sign in again.');
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncMessage(null);
+
+    try {
+      console.log('🚀 Starting email sync from frontend...');
+      
+      const result = await apiClient.syncEmails(session.provider_token, {
+        query: 'newer_than:7d', // Last 7 days
+        maxResults: 50
+      });
+
+      console.log('✅ Email sync completed:', result);
+      
+      setSyncMessage(
+        `Sync completed! Found ${result.totalFound} emails, processed ${result.processedCount} new emails.`
+      );
+
+      // Refresh jobs after sync in case new ones were created
+      await refetch();
+
+    } catch (error) {
+      console.error('❌ Email sync failed:', error);
+      setSyncMessage(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSyncing(false);
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -114,6 +214,41 @@ export const JobBoard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Email Sync Toggle */}
+              <div className="flex items-center space-x-3 px-3 py-2 border border-gray-300 rounded-md bg-white">
+                <Settings size={16} className="text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">
+                  Email Sync:
+                </span>
+                <button
+                  onClick={handleToggleEmailSync}
+                  disabled={loadingUserProfile}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 ${
+                    emailSyncEnabled ? 'bg-green-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      emailSyncEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm ${emailSyncEnabled ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                  {loadingUserProfile ? 'Loading...' : emailSyncEnabled ? 'ON' : 'OFF'}
+                </span>
+              </div>
+
+              {/* Sync Emails Button - only show if email sync is enabled */}
+              {emailSyncEnabled && (
+                <button
+                  onClick={handleSyncEmails}
+                  disabled={isSyncing || loading}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  <Mail size={16} className={`mr-2 ${isSyncing ? 'animate-pulse' : ''}`} />
+                  {isSyncing ? 'Syncing...' : 'Sync Emails'}
+                </button>
+              )}
               <div className="flex items-center space-x-3 text-gray-700">
                 <User size={20} />
                 <div className="text-right">
@@ -132,7 +267,31 @@ export const JobBoard: React.FC = () => {
           </div>
         </header>
 
-        <DndContext
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            <p className="text-sm">
+              <strong>Error:</strong> {error}
+            </p>
+          </div>
+        )}
+
+        {syncMessage && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md">
+            <p className="text-sm">
+              <strong>Email Sync:</strong> {syncMessage}
+            </p>
+          </div>
+        )}
+
+        {loading && jobs.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500">Loading your job applications...</p>
+            </div>
+          </div>
+        ) : (
+          <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
@@ -150,10 +309,11 @@ export const JobBoard: React.FC = () => {
             ))}
           </div>
 
-          <DragOverlay>
-            {activeJob ? <JobCard job={activeJob} /> : null}
-          </DragOverlay>
-        </DndContext>
+            <DragOverlay>
+              {activeJob ? <JobCard job={activeJob} /> : null}
+            </DragOverlay>
+          </DndContext>
+        )}
       </div>
     </div>
   );

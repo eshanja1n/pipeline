@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { apiClient } from '../lib/apiClient'
 
 interface AuthContextType {
   user: User | null
@@ -42,8 +43,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('🔐 Auth state change:', event, session?.user?.email);
+        
         setSession(session)
         setUser(session?.user ?? null)
+        
+        // When user signs in, ensure they exist in our users table
+        if (event === 'SIGNED_IN' && session?.user) {
+          try {
+            console.log('👤 User signed in, ensuring user exists in database...');
+            const email = session.user.email || '';
+            const name = session.user.user_metadata?.full_name || 
+                        session.user.user_metadata?.name || 
+                        email.split('@')[0] || 'User';
+            
+            console.log('📝 Calling ensureUserExists with:', { email, name });
+            
+            await apiClient.ensureUserExists(email, name);
+            console.log('✅ User ensured in database successfully');
+            
+          } catch (error) {
+            console.error('❌ Failed to ensure user exists:', error);
+            // Don't block the login process, just log the error
+          }
+        }
+        
         setLoading(false)
       }
     )
