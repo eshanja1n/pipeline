@@ -17,6 +17,7 @@
     "@types/node": "^16.18.126",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cobe": "^0.6.4",

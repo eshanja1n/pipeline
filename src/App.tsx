@@ -1,4 +1,5 @@
 import React from 'react';
+import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { JobBoard } from './components/JobBoard';
 import { LoginPage } from './components/LoginPage';
@@ -22,6 +23,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <Analytics />
     </AuthProvider>
   );
 }
