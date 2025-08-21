@@ -279,6 +279,26 @@ async function getEmailContent(accessToken, messageId) {
   };
 }
 
+// Helper function to parse Gmail date format to ISO timestamp
+function parseGmailDate(dateString) {
+  try {
+    // Gmail date format: "Thu, 21 Aug 2025 07:28:30 +0000 (UTC)"
+    // Remove the timezone name in parentheses if present
+    const cleanedDate = dateString.replace(/\s*\([^)]*\)\s*$/, '');
+    const date = new Date(cleanedDate);
+    
+    if (isNaN(date.getTime())) {
+      console.warn(`Invalid date format: ${dateString}, using current time`);
+      return new Date().toISOString();
+    }
+    
+    return date.toISOString();
+  } catch (error) {
+    console.warn(`Error parsing date: ${dateString}, using current time`, error);
+    return new Date().toISOString();
+  }
+}
+
 async function storeEmailData(userId, gmailId, emailContent) {
   console.log(`   💾 Storing email data for ${gmailId}...`);
 
@@ -287,6 +307,10 @@ async function storeEmailData(userId, gmailId, emailContent) {
   console.log(`   Gmail ID: ${gmailId}`);
   console.log(`   Subject: ${emailContent.subject}`);
   console.log(`   From: ${emailContent.from}`);
+  console.log(`   Date (raw): ${emailContent.date}`);
+  
+  const parsedDate = parseGmailDate(emailContent.date);
+  console.log(`   Date (parsed): ${parsedDate}`);
 
   // Store in emails table
   console.log('💾 Storing new email in emails table...');
@@ -299,7 +323,7 @@ async function storeEmailData(userId, gmailId, emailContent) {
       sender_email: emailContent.from,
       sender_name: emailContent.fromName || emailContent.from,
       recipient_email: emailContent.to,
-      received_date: emailContent.date,
+      received_date: parsedDate,
       plain_text_content: emailContent.textContent,
       html_content: emailContent.htmlContent,
       headers: emailContent.headers || {},
