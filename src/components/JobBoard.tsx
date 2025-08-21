@@ -16,7 +16,7 @@ import { JobColumn } from './JobColumn';
 import { JobCard } from './JobCard';
 import { useJobs } from '../hooks/useJobs';
 import { apiClient } from '../lib/apiClient';
-import { supabase } from '../lib/supabase';
+import { supabase, signInWithGoogleOffline } from '../lib/supabase';
 
 const columnTitles: Record<JobStatus, string> = {
   applied: 'Applied',
@@ -161,8 +161,8 @@ export const JobBoard: React.FC = () => {
       expiresAt: session.expires_at
     });
 
-    // Try to refresh the session first to get fresh provider tokens
-    console.log('🔄 Refreshing session to get fresh provider tokens...');
+    // First, try to refresh the Supabase session to get fresh provider tokens
+    console.log('🔄 Refreshing Supabase session to get fresh provider tokens...');
     try {
       const { data: { session: newSession }, error } = await supabase.auth.refreshSession();
       
@@ -173,46 +173,33 @@ export const JobBoard: React.FC = () => {
         error: error?.message
       });
       
-      if (error) {
-        console.error('❌ Failed to refresh session:', error);
-        throw new Error('Session expired. Please refresh the page and sign in again.');
-      }
-      
-      if (newSession?.provider_token) {
-        console.log('✅ Got fresh provider token from session refresh');
+      if (!error && newSession?.provider_token) {
+        console.log('✅ Got fresh provider token from Supabase session refresh');
         return newSession.provider_token;
       }
     } catch (refreshError) {
-      console.error('❌ Session refresh failed:', refreshError);
+      console.log('ℹ️ Supabase session refresh did not restore provider tokens');
     }
 
-    // Fallback: check if current provider token is still valid
+    // If we still have a current provider token, try using it
     if (session.provider_token) {
-      console.log('🔑 Trying existing provider token as fallback');
+      console.log('🔑 Using existing provider token');
       return session.provider_token;
     }
 
-    // Final fallback: re-authenticate with Google to get fresh provider tokens
-    console.log('🔄 Provider tokens missing, triggering Google re-authentication...');
-    throw new Error('Gmail access has expired. Please click "Re-authenticate with Google" to restore email sync access.');
-  };
-
-  const handleReauthenticateGoogle = async () => {
+    // If no provider tokens available, automatically initiate Google OAuth with offline access
+    console.log('🔄 No provider tokens available, initiating automatic Google OAuth with offline access...');
+    
     try {
-      console.log('🔄 Re-authenticating with Google...');
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          scopes: 'email profile https://www.googleapis.com/auth/gmail.readonly',
-          redirectTo: window.location.origin
-        }
-      });
-    } catch (error) {
-      console.error('❌ Google re-authentication failed:', error);
-      setSyncMessage('Failed to re-authenticate with Google. Please try again.');
-      setTimeout(() => setSyncMessage(null), 5000);
+      await signInWithGoogleOffline();
+      // This will redirect the user, so this line won't be reached
+      throw new Error('Redirecting for authentication...');
+    } catch (oauthError) {
+      console.error('❌ Failed to initiate Google OAuth:', oauthError);
+      throw new Error('Failed to refresh Gmail access. Please try again.');
     }
   };
+
 
   const handleSyncEmails = async () => {
     console.log('📋 Debug session info:', {
@@ -251,8 +238,10 @@ export const JobBoard: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Provide more helpful error messages
-      if (errorMessage.includes('Gmail access has expired') || errorMessage.includes('Re-authenticate with Google')) {
-        setSyncMessage('Gmail access expired. Please click "Re-authenticate with Google" below to restore email sync.');
+      if (errorMessage.includes('Redirecting for authentication')) {
+        setSyncMessage('Refreshing Gmail access... Please wait.');
+        // Clear the message since we're redirecting
+        setTimeout(() => setSyncMessage(null), 2000);
       } else if (errorMessage.includes('sign in again')) {
         setSyncMessage('Session expired. Please refresh the page and sign in again.');
       } else {
@@ -315,28 +304,14 @@ export const JobBoard: React.FC = () => {
 
               {/* Sync Emails Button - only show if email sync is enabled */}
               {emailSyncEnabled && (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={handleSyncEmails}
-                    disabled={isSyncing || loading}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    <Mail size={16} className={`mr-2 ${isSyncing ? 'animate-pulse' : ''}`} />
-                    {isSyncing ? 'Syncing...' : 'Sync Emails'}
-                  </button>
-                  
-                  {/* Re-authenticate button - show if provider tokens might be missing */}
-                  {session && !session.provider_token && (
-                    <button
-                      onClick={handleReauthenticateGoogle}
-                      disabled={loading}
-                      className="inline-flex items-center px-3 py-2 border border-orange-300 shadow-sm text-sm leading-4 font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
-                    >
-                      <RefreshCw size={16} className="mr-2" />
-                      Re-auth Google
-                    </button>
-                  )}
-                </div>
+                <button
+                  onClick={handleSyncEmails}
+                  disabled={isSyncing || loading}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  <Mail size={16} className={`mr-2 ${isSyncing ? 'animate-pulse' : ''}`} />
+                  {isSyncing ? 'Syncing...' : 'Sync Emails'}
+                </button>
               )}
               <div className="flex items-center space-x-3 text-gray-700">
                 <User size={20} />

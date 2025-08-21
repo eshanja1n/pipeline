@@ -11,3 +11,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce'
   }
 })
+
+// Helper function to sign in with Google with proper offline access
+export const signInWithGoogleOffline = async () => {
+  return await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      scopes: 'email profile https://www.googleapis.com/auth/gmail.readonly',
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent'
+      },
+      redirectTo: window.location.origin
+    }
+  });
+};
