@@ -17,13 +17,7 @@ const API_BASE_URL = getApiBaseUrl();
 class ApiClient {
   private async getAuthHeaders(): Promise<Record<string, string>> {
     try {
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Session timeout')), 5000);
-      });
-      
-      const sessionPromise = supabase.auth.getSession();
-      const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+      const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
         throw new Error(`Session error: ${error.message}`);
@@ -38,7 +32,10 @@ class ApiClient {
         'Authorization': `Bearer ${session.access_token}`
       };
     } catch (error) {
-      console.error('❌ ApiClient: Error in getAuthHeaders:', error);
+      // Only log actual session errors, not timeout errors
+      if (error instanceof Error && !error.message.includes('No valid session')) {
+        console.error('❌ ApiClient: Error in getAuthHeaders:', error);
+      }
       throw error;
     }
   }

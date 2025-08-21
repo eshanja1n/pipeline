@@ -76,22 +76,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // When user signs in, ensure they exist in our users table
         if (event === 'SIGNED_IN' && session?.user) {
-          try {
-            console.log('👤 User signed in, ensuring user exists in database...');
-            const email = session.user.email || '';
-            const name = session.user.user_metadata?.full_name || 
-                        session.user.user_metadata?.name || 
-                        email.split('@')[0] || 'User';
-            
-            console.log('📝 Calling ensureUserExists with:', { email, name });
-            
-            await apiClient.ensureUserExists(email, name);
-            console.log('✅ User ensured in database successfully');
-            
-          } catch (error) {
-            console.error('❌ Failed to ensure user exists:', error);
-            // Don't block the login process, just log the error
-          }
+          // Wait a bit for session to be fully ready, then ensure user exists
+          setTimeout(async () => {
+            try {
+              console.log('👤 User signed in, ensuring user exists in database...');
+              const email = session.user.email || '';
+              const name = session.user.user_metadata?.full_name || 
+                          session.user.user_metadata?.name || 
+                          email.split('@')[0] || 'User';
+              
+              console.log('📝 Calling ensureUserExists with:', { email, name });
+              
+              await apiClient.ensureUserExists(email, name);
+              console.log('✅ User ensured in database successfully');
+              
+            } catch (error) {
+              // Silently handle this - user will still be logged in
+              console.log('ℹ️ User creation will be handled on first API call');
+            }
+          }, 1000); // Wait 1 second for session to be ready
         }
         
         // Only set loading to false for certain events, not all of them
