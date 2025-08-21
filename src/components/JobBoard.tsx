@@ -192,7 +192,26 @@ export const JobBoard: React.FC = () => {
       return session.provider_token;
     }
 
-    throw new Error('No Gmail access token found. Please refresh the page and sign in again.');
+    // Final fallback: re-authenticate with Google to get fresh provider tokens
+    console.log('🔄 Provider tokens missing, triggering Google re-authentication...');
+    throw new Error('Gmail access has expired. Please click "Re-authenticate with Google" to restore email sync access.');
+  };
+
+  const handleReauthenticateGoogle = async () => {
+    try {
+      console.log('🔄 Re-authenticating with Google...');
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'email profile https://www.googleapis.com/auth/gmail.readonly',
+          redirectTo: window.location.origin
+        }
+      });
+    } catch (error) {
+      console.error('❌ Google re-authentication failed:', error);
+      setSyncMessage('Failed to re-authenticate with Google. Please try again.');
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
   };
 
   const handleSyncEmails = async () => {
@@ -232,7 +251,9 @@ export const JobBoard: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Provide more helpful error messages
-      if (errorMessage.includes('sign in again')) {
+      if (errorMessage.includes('Gmail access has expired') || errorMessage.includes('Re-authenticate with Google')) {
+        setSyncMessage('Gmail access expired. Please click "Re-authenticate with Google" below to restore email sync.');
+      } else if (errorMessage.includes('sign in again')) {
         setSyncMessage('Session expired. Please refresh the page and sign in again.');
       } else {
         setSyncMessage(`Sync failed: ${errorMessage}`);
@@ -294,14 +315,28 @@ export const JobBoard: React.FC = () => {
 
               {/* Sync Emails Button - only show if email sync is enabled */}
               {emailSyncEnabled && (
-                <button
-                  onClick={handleSyncEmails}
-                  disabled={isSyncing || loading}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  <Mail size={16} className={`mr-2 ${isSyncing ? 'animate-pulse' : ''}`} />
-                  {isSyncing ? 'Syncing...' : 'Sync Emails'}
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleSyncEmails}
+                    disabled={isSyncing || loading}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  >
+                    <Mail size={16} className={`mr-2 ${isSyncing ? 'animate-pulse' : ''}`} />
+                    {isSyncing ? 'Syncing...' : 'Sync Emails'}
+                  </button>
+                  
+                  {/* Re-authenticate button - show if provider tokens might be missing */}
+                  {session && !session.provider_token && (
+                    <button
+                      onClick={handleReauthenticateGoogle}
+                      disabled={loading}
+                      className="inline-flex items-center px-3 py-2 border border-orange-300 shadow-sm text-sm leading-4 font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
+                    >
+                      <RefreshCw size={16} className="mr-2" />
+                      Re-auth Google
+                    </button>
+                  )}
+                </div>
               )}
               <div className="flex items-center space-x-3 text-gray-700">
                 <User size={20} />
