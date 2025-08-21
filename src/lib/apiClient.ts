@@ -1,6 +1,17 @@
 import { supabase } from './supabase';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// Determine API base URL based on environment
+const getApiBaseUrl = () => {
+  // In production, use the same domain for API calls (Vercel Functions)
+  if (process.env.NODE_ENV === 'production') {
+    return '/api';
+  }
+  
+  // In development, use the local backend server
+  return process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiClient {
   private async getAuthHeaders(): Promise<Record<string, string>> {

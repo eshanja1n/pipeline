@@ -1,0 +1,13 @@
+{
+  "name": "pipeline-api",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.55.0",
+    "googleapis": "^128.0.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.450.0",
+    "dotenv": "^16.3.1",
+    "cheerio": "^1.0.0-rc.12",
+    "validator": "^13.11.0"
+  }
+}
