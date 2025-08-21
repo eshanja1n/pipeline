@@ -142,7 +142,7 @@ async function getLastSyncTimestamp(userId) {
   
   const { data: user, error } = await supabaseAdmin
     .from('users')
-    .select('last_sync_timestamp')
+    .select('last_sync_enabled_at')
     .eq('id', userId)
     .single();
 
@@ -151,7 +151,7 @@ async function getLastSyncTimestamp(userId) {
     return null;
   }
 
-  const timestamp = user?.last_sync_timestamp;
+  const timestamp = user?.last_sync_enabled_at;
   console.log(`   Last sync timestamp: ${timestamp || 'none'}`);
   return timestamp;
 }
@@ -327,7 +327,7 @@ async function updateLastSyncTimestamp(userId) {
   const { error } = await supabaseAdmin
     .from('users')
     .update({ 
-      last_sync_timestamp: new Date().toISOString(),
+      last_sync_enabled_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
     .eq('id', userId);
