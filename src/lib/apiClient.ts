@@ -20,6 +20,15 @@ class ApiClient {
       // First try to get the current session
       let { data: { session }, error } = await supabase.auth.getSession();
       
+      console.log('🔍 DEBUG: Current session state:', {
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+        hasRefreshToken: !!session?.refresh_token,
+        expiresAt: session?.expires_at,
+        timeLeft: session?.expires_at ? Math.floor((session.expires_at - Date.now() / 1000) / 60) + ' minutes' : 'N/A',
+        error: error?.message
+      });
+      
       if (error) {
         throw new Error(`Session error: ${error.message}`);
       }
@@ -27,8 +36,20 @@ class ApiClient {
       // If no session or token is expired/close to expiring, try to refresh
       if (!session?.access_token || this.isTokenExpiringSoon(session)) {
         console.log('🔄 Session expired or expiring soon, attempting refresh...');
+        console.log('🔍 DEBUG: Refresh attempt details:', {
+          hasRefreshToken: !!session?.refresh_token,
+          isExpiringSoon: session ? this.isTokenExpiringSoon(session) : 'no session'
+        });
         
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        console.log('🔍 DEBUG: Refresh result:', {
+          success: !refreshError,
+          hasNewSession: !!refreshData?.session,
+          hasNewAccessToken: !!refreshData?.session?.access_token,
+          hasNewRefreshToken: !!refreshData?.session?.refresh_token,
+          error: refreshError?.message
+        });
         
         if (refreshError) {
           console.error('❌ Failed to refresh session:', refreshError);
@@ -38,6 +59,8 @@ class ApiClient {
         if (refreshData.session) {
           session = refreshData.session;
           console.log('✅ Session refreshed successfully');
+        } else {
+          throw new Error('Refresh succeeded but no new session returned');
         }
       }
       
@@ -50,10 +73,7 @@ class ApiClient {
         'Authorization': `Bearer ${session.access_token}`
       };
     } catch (error) {
-      // Only log actual session errors, not timeout errors
-      if (error instanceof Error && !error.message.includes('No valid session')) {
-        console.error('❌ ApiClient: Error in getAuthHeaders:', error);
-      }
+      console.error('❌ ApiClient: Error in getAuthHeaders:', error);
       throw error;
     }
   }

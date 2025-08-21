@@ -148,54 +148,51 @@ export const JobBoard: React.FC = () => {
     jobs.filter(job => job.status === status);
 
   const getValidAccessToken = async () => {
-    console.log('🔑 Getting valid access token...');
+    console.log('🔑 Getting valid Gmail access token...');
     
     if (!session) {
       throw new Error('No session found. Please sign in again.');
     }
 
-    // Check if we have a provider token and it's not expired
+    console.log('🔍 DEBUG: Provider token state:', {
+      hasProviderToken: !!session.provider_token,
+      hasProviderRefreshToken: !!session.provider_refresh_token,
+      hasRefreshToken: !!session.refresh_token,
+      expiresAt: session.expires_at
+    });
+
+    // Try to refresh the session first to get fresh provider tokens
+    console.log('🔄 Refreshing session to get fresh provider tokens...');
+    try {
+      const { data: { session: newSession }, error } = await supabase.auth.refreshSession();
+      
+      console.log('🔍 DEBUG: Session refresh result:', {
+        success: !error,
+        hasNewSession: !!newSession,
+        hasNewProviderToken: !!newSession?.provider_token,
+        error: error?.message
+      });
+      
+      if (error) {
+        console.error('❌ Failed to refresh session:', error);
+        throw new Error('Session expired. Please refresh the page and sign in again.');
+      }
+      
+      if (newSession?.provider_token) {
+        console.log('✅ Got fresh provider token from session refresh');
+        return newSession.provider_token;
+      }
+    } catch (refreshError) {
+      console.error('❌ Session refresh failed:', refreshError);
+    }
+
+    // Fallback: check if current provider token is still valid
     if (session.provider_token) {
-      // Simple expiration check - check if token expires soon
-      const now = Math.floor(Date.now() / 1000); // Current time in seconds
-      const expiresAt = session.expires_at || 0;
-      const secondsUntilExpiry = expiresAt - now;
-      
-      console.log('🔑 Token expires in:', Math.round(secondsUntilExpiry / 60), 'minutes');
-      
-      if (secondsUntilExpiry > 300) { // More than 5 minutes left
-        console.log('✅ Using existing provider token');
-        return session.provider_token;
-      }
+      console.log('🔑 Trying existing provider token as fallback');
+      return session.provider_token;
     }
 
-    // Try to refresh the session if we have a refresh token
-    if (session.provider_refresh_token) {
-      console.log('🔄 Refreshing access token...');
-      try {
-        const { data: { session: newSession }, error } = await supabase.auth.refreshSession({
-          refresh_token: session.refresh_token || session.provider_refresh_token
-        });
-
-        if (error) throw error;
-
-        if (newSession?.provider_token) {
-          console.log('✅ Token refreshed successfully');
-          return newSession.provider_token;
-        }
-      } catch (error) {
-        console.error('❌ Token refresh failed:', error);
-      }
-    }
-
-    // If refresh fails, try to get current session (might have been refreshed automatically)
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    if (currentSession?.provider_token) {
-      console.log('✅ Using current session token');
-      return currentSession.provider_token;
-    }
-
-    throw new Error('No valid access token available. Please sign in again.');
+    throw new Error('No Gmail access token found. Please refresh the page and sign in again.');
   };
 
   const handleSyncEmails = async () => {
