@@ -30,13 +30,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let mounted = true;
+    
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('❌ AuthContext: Error getting session:', error)
+        }
+        
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      } catch (error) {
+        console.error('❌ AuthContext: Unexpected error:', error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
     }
+
+    // Set a timeout fallback to ensure loading never gets stuck
+    const fallbackTimeout = setTimeout(() => {
+      if (mounted) {
+        console.log('⚠️ AuthContext: Fallback timeout - forcing loading to false')
+        setLoading(false)
+      }
+    }, 2000) // 2 second fallback (reduced from 10)
 
     getInitialSession()
 
@@ -44,6 +68,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔐 Auth state change:', event, session?.user?.email);
+        
+        if (!mounted) return;
         
         setSession(session)
         setUser(session?.user ?? null)
@@ -68,11 +94,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         }
         
-        setLoading(false)
+        // Only set loading to false for certain events, not all of them
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+          setLoading(false);
+        }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false;
+      clearTimeout(fallbackTimeout);
+      subscription.unsubscribe();
+    }
   }, [])
 
   const signOut = async () => {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../lib/apiClient';
 import { Job } from '../types/job';
+import { useAuth } from '../contexts/AuthContext';
 
 interface UseJobsReturn {
   jobs: Job[];
@@ -15,6 +16,7 @@ interface UseJobsReturn {
 }
 
 export const useJobs = (): UseJobsReturn => {
+  const { user, loading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +25,11 @@ export const useJobs = (): UseJobsReturn => {
     try {
       setLoading(true);
       setError(null);
+      
       const response = await apiClient.getJobs();
-      setJobs(response.jobs);
+      setJobs(response.jobs || []);
     } catch (err) {
-      console.error('Error fetching jobs:', err);
+      console.error('❌ useJobs: Error fetching jobs:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
     } finally {
       setLoading(false);
@@ -102,8 +105,15 @@ export const useJobs = (): UseJobsReturn => {
   }, [fetchJobs]);
 
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    // Only fetch jobs when auth is ready and user is logged in
+    if (!authLoading && user) {
+      fetchJobs();
+    } else if (!authLoading && !user) {
+      // If auth is ready but no user, stop loading
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
 
   return {
     jobs,

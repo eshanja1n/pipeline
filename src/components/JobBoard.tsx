@@ -8,7 +8,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { LogOut, User, RefreshCw, Plus, Mail, Settings } from 'lucide-react';
+import { LogOut, User, RefreshCw, Mail, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Logo } from './ui/logo';
 import { Job, JobStatus } from '../types/job';
@@ -16,6 +16,7 @@ import { JobColumn } from './JobColumn';
 import { JobCard } from './JobCard';
 import { useJobs } from '../hooks/useJobs';
 import { apiClient } from '../lib/apiClient';
+import { supabase } from '../lib/supabase';
 
 const columnTitles: Record<JobStatus, string> = {
   applied: 'Applied',
@@ -146,6 +147,57 @@ export const JobBoard: React.FC = () => {
   const getJobsByStatus = (status: JobStatus) => 
     jobs.filter(job => job.status === status);
 
+  const getValidAccessToken = async () => {
+    console.log('🔑 Getting valid access token...');
+    
+    if (!session) {
+      throw new Error('No session found. Please sign in again.');
+    }
+
+    // Check if we have a provider token and it's not expired
+    if (session.provider_token) {
+      // Simple expiration check - check if token expires soon
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const expiresAt = session.expires_at || 0;
+      const secondsUntilExpiry = expiresAt - now;
+      
+      console.log('🔑 Token expires in:', Math.round(secondsUntilExpiry / 60), 'minutes');
+      
+      if (secondsUntilExpiry > 300) { // More than 5 minutes left
+        console.log('✅ Using existing provider token');
+        return session.provider_token;
+      }
+    }
+
+    // Try to refresh the session if we have a refresh token
+    if (session.provider_refresh_token) {
+      console.log('🔄 Refreshing access token...');
+      try {
+        const { data: { session: newSession }, error } = await supabase.auth.refreshSession({
+          refresh_token: session.refresh_token || session.provider_refresh_token
+        });
+
+        if (error) throw error;
+
+        if (newSession?.provider_token) {
+          console.log('✅ Token refreshed successfully');
+          return newSession.provider_token;
+        }
+      } catch (error) {
+        console.error('❌ Token refresh failed:', error);
+      }
+    }
+
+    // If refresh fails, try to get current session (might have been refreshed automatically)
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (currentSession?.provider_token) {
+      console.log('✅ Using current session token');
+      return currentSession.provider_token;
+    }
+
+    throw new Error('No valid access token available. Please sign in again.');
+  };
+
   const handleSyncEmails = async () => {
     console.log('📋 Debug session info:', {
       hasSession: !!session,
@@ -155,18 +207,16 @@ export const JobBoard: React.FC = () => {
       sessionKeys: session ? Object.keys(session) : [],
     });
 
-    if (!session?.provider_token) {
-      setSyncMessage('No Gmail access token found. Please sign in again.');
-      return;
-    }
-
     setIsSyncing(true);
     setSyncMessage(null);
 
     try {
       console.log('🚀 Starting email sync from frontend...');
       
-      const result = await apiClient.syncEmails(session.provider_token, {
+      // Get a valid access token (refresh if needed)
+      const accessToken = await getValidAccessToken();
+      
+      const result = await apiClient.syncEmails(accessToken, {
         query: 'newer_than:7d', // Last 7 days
         maxResults: 50
       });
@@ -182,7 +232,14 @@ export const JobBoard: React.FC = () => {
 
     } catch (error) {
       console.error('❌ Email sync failed:', error);
-      setSyncMessage(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes('sign in again')) {
+        setSyncMessage('Session expired. Please refresh the page and sign in again.');
+      } else {
+        setSyncMessage(`Sync failed: ${errorMessage}`);
+      }
     } finally {
       setIsSyncing(false);
       

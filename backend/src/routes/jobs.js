@@ -36,6 +36,8 @@ router.use(authenticateToken);
 router.get('/', asyncHandler(async (req, res) => {
   const { status, limit = 100, offset = 0 } = req.query;
   
+  console.log(`🔍 Jobs API: GET /jobs - userId: ${req.userId}, status: ${status}, limit: ${limit}, offset: ${offset}`);
+  
   let query = supabaseAdmin
     .from('jobs')
     .select('*')
@@ -49,22 +51,27 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const { data: jobs, error, count } = await query;
 
+  console.log(`✅ Jobs API: Query result - jobs: ${jobs?.length || 0}, error: ${!!error}, count: ${count}`);
+
   if (error) {
-    console.error('Error fetching jobs:', error);
+    console.error('❌ Jobs API: Error fetching jobs:', error);
     return res.status(500).json({
       error: 'Failed to fetch jobs',
       code: 'FETCH_JOBS_ERROR'
     });
   }
 
-  res.json({
+  const response = {
     jobs: jobs.map(mapJobToFrontend),
     pagination: {
       total: count,
       limit: parseInt(limit),
       offset: parseInt(offset)
     }
-  });
+  };
+
+  console.log(`📤 Jobs API: Sending response - ${response.jobs.length} jobs`);
+  res.json(response);
 }));
 
 /**

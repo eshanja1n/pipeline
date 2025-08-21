@@ -4,16 +4,31 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 
 class ApiClient {
   private async getAuthHeaders(): Promise<Record<string, string>> {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.access_token) {
-      throw new Error('No valid session found');
-    }
+    try {
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Session timeout')), 5000);
+      });
+      
+      const sessionPromise = supabase.auth.getSession();
+      const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+      
+      if (error) {
+        throw new Error(`Session error: ${error.message}`);
+      }
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
 
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`
-    };
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      };
+    } catch (error) {
+      console.error('❌ ApiClient: Error in getAuthHeaders:', error);
+      throw error;
+    }
   }
 
   private async request<T>(
@@ -21,21 +36,27 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const headers = await this.getAuthHeaders();
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
     
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-      },
-    });
+    try {
+      const response = await fetch(fullUrl, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers,
+        },
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('❌ ApiClient: Fetch error:', error);
+      throw error;
     }
-
-    return response.json();
   }
 
   // Job API methods
@@ -46,7 +67,9 @@ class ApiClient {
     if (params?.offset) searchParams.append('offset', params.offset.toString());
     
     const query = searchParams.toString();
-    return this.request<{ jobs: any[]; pagination: any }>(`/jobs${query ? `?${query}` : ''}`);
+    const endpoint = `/jobs${query ? `?${query}` : ''}`;
+    
+    return this.request<{ jobs: any[]; pagination: any }>(endpoint);
   }
 
   async getJob(id: string) {
