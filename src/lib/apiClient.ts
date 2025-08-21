@@ -2,8 +2,21 @@ import { supabase } from './supabase';
 
 // Determine API base URL based on environment
 const getApiBaseUrl = () => {
+  // Check if we're running on production domain (Vercel)
+  const isProduction = 
+    process.env.NODE_ENV === 'production' || 
+    window.location.hostname !== 'localhost' ||
+    window.location.hostname.includes('.vercel.app');
+  
+  console.log('🌐 API URL Detection:', {
+    NODE_ENV: process.env.NODE_ENV,
+    hostname: window.location.hostname,
+    isProduction,
+    willUse: isProduction ? '/api' : (process.env.REACT_APP_API_URL || 'http://localhost:3001/api')
+  });
+  
   // In production, use the same domain for API calls (Vercel Functions)
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction) {
     return '/api';
   }
   
