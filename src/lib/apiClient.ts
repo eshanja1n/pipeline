@@ -17,10 +17,28 @@ const API_BASE_URL = getApiBaseUrl();
 class ApiClient {
   private async getAuthHeaders(): Promise<Record<string, string>> {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      // First try to get the current session
+      let { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
         throw new Error(`Session error: ${error.message}`);
+      }
+      
+      // If no session or token is expired/close to expiring, try to refresh
+      if (!session?.access_token || this.isTokenExpiringSoon(session)) {
+        console.log('🔄 Session expired or expiring soon, attempting refresh...');
+        
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error('❌ Failed to refresh session:', refreshError);
+          throw new Error('Session expired. Please refresh the page and sign in again.');
+        }
+        
+        if (refreshData.session) {
+          session = refreshData.session;
+          console.log('✅ Session refreshed successfully');
+        }
       }
       
       if (!session?.access_token) {
@@ -38,6 +56,17 @@ class ApiClient {
       }
       throw error;
     }
+  }
+
+  private isTokenExpiringSoon(session: any): boolean {
+    if (!session.expires_at) return false;
+    
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = session.expires_at;
+    const timeUntilExpiry = expiresAt - now;
+    
+    // Refresh if expires in less than 5 minutes (300 seconds)
+    return timeUntilExpiry < 300;
   }
 
   private async request<T>(

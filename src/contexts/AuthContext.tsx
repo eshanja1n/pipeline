@@ -64,6 +64,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     getInitialSession()
 
+    // Set up periodic session refresh (every 45 minutes)
+    const refreshInterval = setInterval(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const now = Math.floor(Date.now() / 1000);
+          const expiresAt = session.expires_at || 0;
+          const timeUntilExpiry = expiresAt - now;
+          
+          // Refresh if expires in less than 10 minutes
+          if (timeUntilExpiry < 600) {
+            console.log('🔄 AuthContext: Proactively refreshing session...');
+            await supabase.auth.refreshSession();
+          }
+        }
+      } catch (error) {
+        console.log('ℹ️ AuthContext: Session refresh check failed (normal if logged out)');
+      }
+    }, 45 * 60 * 1000); // Check every 45 minutes
+
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -107,6 +127,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       mounted = false;
       clearTimeout(fallbackTimeout);
+      clearInterval(refreshInterval);
       subscription.unsubscribe();
     }
   }, [])
