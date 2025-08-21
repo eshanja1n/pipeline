@@ -1,25 +1,15 @@
 import { supabase } from './supabase';
 
-// Determine API base URL based on environment
+// Production-only API configuration - always use Vercel Functions
 const getApiBaseUrl = () => {
-  // FORCE production API for any non-localhost hostname
-  const hostname = window.location.hostname;
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-  
-  console.log('🚀 PIPELINE API CLIENT v2.0 - URL Detection - BUILD_TIME:', new Date().toISOString(), {
-    hostname,
-    isLocalhost,
-    NODE_ENV: process.env.NODE_ENV,
-    finalURL: isLocalhost ? 'http://localhost:3001/api' : '/api'
+  console.log('🚀 PIPELINE API CLIENT - PRODUCTION ONLY:', {
+    hostname: window.location.hostname,
+    buildTime: new Date().toISOString(),
+    apiURL: '/api'
   });
   
-  // If NOT localhost, always use Vercel Functions
-  if (!isLocalhost) {
-    return '/api';
-  }
-  
-  // Only use localhost backend when actually on localhost
-  return 'http://localhost:3001/api';
+  // Always use Vercel Functions at /api
+  return '/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

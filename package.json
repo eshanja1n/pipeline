@@ -32,15 +32,10 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "setup-db": "node scripts/setup-supabase-tables.js",
-    "backend": "cd backend && npm run dev",
-    "frontend": "react-scripts start",
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
-    "dev:quiet": "concurrently --kill-others-on-fail \"npm run backend\" \"npm run frontend\" --prefix-colors \"bgBlue.bold,bgMagenta.bold\" --names \"BACKEND,FRONTEND\"",
     "vercel-build": "react-scripts build",
     "preview": "npm run build && npx serve -s build"
   },

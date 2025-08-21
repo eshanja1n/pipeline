@@ -18,11 +18,13 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-// CORS configuration
+// CORS configuration - Production only
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://pipeline-job-board.vercel.app']
-    : ['http://localhost:3000'],
+  origin: [
+    process.env.FRONTEND_URL || 'https://pipeline-cyan.vercel.app',
+    'https://pipeline-cyan.vercel.app',
+    'https://*.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
