@@ -183,11 +183,26 @@ async function fetchEmailsFromGmail(accessToken, options) {
 }
 
 async function isEmailTracked(userId, gmailId) {
+  // First find the email by gmail_message_id, then check if it's tracked
+  const { data: email, error: emailError } = await supabaseAdmin
+    .from('emails')
+    .select('id')
+    .eq('gmail_message_id', gmailId)
+    .single();
+
+  if (emailError) {
+    if (emailError.code === 'PGRST116') {
+      return false; // Email doesn't exist, so not tracked
+    }
+    console.error('Error finding email for tracking check:', emailError);
+    return false;
+  }
+
   const { data: tracking, error } = await supabaseAdmin
     .from('email_tracking')
     .select('id')
     .eq('user_id', userId)
-    .eq('gmail_id', gmailId)
+    .eq('email_id', email.id)
     .single();
 
   if (error && error.code !== 'PGRST116') {
@@ -278,15 +293,17 @@ async function storeEmailData(userId, gmailId, emailContent) {
   const { data: email, error: emailError } = await supabaseAdmin
     .from('emails')
     .insert([{
-      user_id: userId,
-      gmail_id: gmailId,
+      gmail_message_id: gmailId,
+      gmail_thread_id: emailContent.threadId || gmailId,
       subject: emailContent.subject,
-      from_email: emailContent.from,
-      to_email: emailContent.to,
-      sent_date: emailContent.date,
-      text_content: emailContent.textContent,
+      sender_email: emailContent.from,
+      sender_name: emailContent.fromName || emailContent.from,
+      recipient_email: emailContent.to,
+      received_date: emailContent.date,
+      plain_text_content: emailContent.textContent,
       html_content: emailContent.htmlContent,
-      created_at: new Date().toISOString()
+      headers: emailContent.headers || {},
+      attachments: emailContent.attachments || []
     }])
     .select()
     .single();
@@ -304,11 +321,9 @@ async function storeEmailData(userId, gmailId, emailContent) {
     .from('email_tracking')
     .insert([{
       user_id: userId,
-      gmail_id: gmailId,
       email_id: email.id,
       is_job_related: false, // Will be updated by LLM analysis
-      is_processed: false,
-      created_at: new Date().toISOString()
+      is_processed: false
     }])
     .select()
     .single();
