@@ -2,26 +2,24 @@ import { supabase } from './supabase';
 
 // Determine API base URL based on environment
 const getApiBaseUrl = () => {
-  // Check if we're running on production domain (Vercel)
-  const isProduction = 
-    process.env.NODE_ENV === 'production' || 
-    window.location.hostname !== 'localhost' ||
-    window.location.hostname.includes('.vercel.app');
+  // FORCE production API for any non-localhost hostname
+  const hostname = window.location.hostname;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
   
-  console.log('🌐 API URL Detection:', {
+  console.log('🚀 PIPELINE API CLIENT v2.0 - URL Detection - BUILD_TIME:', new Date().toISOString(), {
+    hostname,
+    isLocalhost,
     NODE_ENV: process.env.NODE_ENV,
-    hostname: window.location.hostname,
-    isProduction,
-    willUse: isProduction ? '/api' : (process.env.REACT_APP_API_URL || 'http://localhost:3001/api')
+    finalURL: isLocalhost ? 'http://localhost:3001/api' : '/api'
   });
   
-  // In production, use the same domain for API calls (Vercel Functions)
-  if (isProduction) {
+  // If NOT localhost, always use Vercel Functions
+  if (!isLocalhost) {
     return '/api';
   }
   
-  // In development, use the local backend server
-  return process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+  // Only use localhost backend when actually on localhost
+  return 'http://localhost:3001/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
