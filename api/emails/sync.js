@@ -2,6 +2,10 @@ const { supabaseAdmin, corsHandler, authenticateToken, handleError } = require('
 const { google } = require('googleapis');
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 
+// Import LLM service for analysis
+const path = require('path');
+const LLMService = require(path.join(__dirname, '../../backend/src/services/llmService.js'));
+
 // Initialize AWS Bedrock client
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || 'us-west-2',
@@ -87,6 +91,7 @@ async function syncEmailsForUser(userId, accessToken, options = {}) {
   // Process each email
   let processedCount = 0;
   let newJobsCreated = 0;
+  const newEmailTrackingIds = [];
 
   if (gmailResult.messages && gmailResult.messages.length > 0) {
     for (const message of gmailResult.messages) {
@@ -111,16 +116,42 @@ async function syncEmailsForUser(userId, accessToken, options = {}) {
         // Store email data
         const emailRecord = await storeEmailData(userId, message.id, emailContent);
         
+        // Add to tracking IDs for analysis
+        newEmailTrackingIds.push(emailRecord.tracking.id);
+        
         processedCount++;
         console.log(`   ✅ Email ${message.id} stored successfully`);
-
-        // Analyze email with LLM (simplified for serverless)
-        // Note: In production, you might want to queue this for background processing
-        // For now, we'll do basic job detection inline
         
       } catch (error) {
         console.error(`❌ Error processing email ${message.id}:`, error);
         continue;
+      }
+    }
+  }
+
+  // Analyze new emails for job relationships if any were processed
+  if (newEmailTrackingIds.length > 0) {
+    console.log(`🤖 Starting LLM analysis for ${newEmailTrackingIds.length} new emails...`);
+    
+    // Check if AWS credentials are configured
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+      console.warn('⚠️ AWS credentials not configured. Skipping LLM analysis.');
+      console.log('To enable job detection, configure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your Vercel environment variables.');
+    } else {
+      try {
+        const analysisResults = await LLMService.analyzeEmailBatch(newEmailTrackingIds, userId);
+        
+        // Count how many jobs were created/updated
+        newJobsCreated = analysisResults.filter(result => 
+          result.success && 
+          result.analysis?.job_updated
+        ).length;
+        
+        console.log(`✅ LLM analysis completed. Jobs created/updated: ${newJobsCreated}`);
+      } catch (analysisError) {
+        console.error(`❌ LLM analysis failed:`, analysisError);
+        console.error('This could be due to missing AWS credentials or Bedrock service issues.');
+        // Don't fail the entire sync if analysis fails
       }
     }
   }
