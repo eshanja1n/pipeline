@@ -74,18 +74,21 @@ class LLMService {
           if (jobMatchResult.matched_job_id) {
             console.log(`✅ Matched email to job: ${jobMatchResult.matched_job_id}`);
             
+            // Always link email to the matched job
+            await this.updateEmailAnalysis(emailTrackingId, {
+              job_id: jobMatchResult.matched_job_id
+            });
+            
+            finalResult.job_match = jobMatchResult;
+            
             // Update the job status if suggested
             if (jobMatchResult.suggested_status) {
               await this.updateJobStatus(jobMatchResult.matched_job_id, jobMatchResult.suggested_status, userId);
               console.log(`📝 Updated job ${jobMatchResult.matched_job_id} status to: ${jobMatchResult.suggested_status}`);
-              
-              // Update email tracking to link to job
-              await this.updateEmailAnalysis(emailTrackingId, {
-                job_id: jobMatchResult.matched_job_id
-              });
-              
-              finalResult.job_match = jobMatchResult;
               finalResult.job_updated = true;
+            } else {
+              console.log(`📋 Email linked to job but no status update suggested`);
+              finalResult.job_updated = false;
             }
           } else {
             console.log(`ℹ️ No matching job found for this email`);
@@ -298,13 +301,16 @@ Extract job information and respond with a JSON object containing:
 7. "reasoning": string - Brief explanation of extraction
 
 GUIDELINES:
-- Only set success=true if you can identify both company and role
-- Infer the most appropriate status based on email content
-- If it's an application confirmation, use "applied"
-- If it's about scheduling interviews, use "interview"
-- If it's a rejection, use "rejected"
-- If it's an offer, use "offer"
-- Be conservative - only extract if information is clear
+- Only set success=true if you can identify both company and role clearly
+- Extract company name from sender domain, sender name, or email content
+- Extract role/position from subject line or email content
+- Infer the most appropriate status based on email content:
+  * "applied" - if it's an application confirmation or acknowledgment
+  * "interview" - if scheduling/confirming interviews or phone screens
+  * "offer" - if presenting job offers or congratulating on selection
+  * "rejected" - if explicitly rejecting or declining
+- Default to "applied" if status is unclear but it's clearly job-related
+- Be more liberal with extraction - if it's clearly about a job application, try to extract what you can
 
 Respond only with valid JSON:`;
 
@@ -387,9 +393,25 @@ Analyze this email and respond with a JSON object containing:
 3. "reasoning": string - Brief explanation of your analysis
 
 GUIDELINES:
-- Match based on company name, role, or specific job references
-- Only suggest status changes if the email clearly indicates a status update
-- Be conservative - only match if you're confident about the connection
+- ONLY match if the email is clearly about an EXISTING job application that the user already has in their list
+- DO NOT match if the email is about a NEW job application, even if company/role seem similar
+- Look for these indicators of NEW applications (should NOT match):
+  * "your application was sent"
+  * "we received your application" 
+  * "thank you for applying"
+  * "application submitted"
+  * Recent application confirmations
+- Only match for follow-ups to existing applications:
+  * Interview scheduling for jobs already applied to
+  * Status updates on pending applications
+  * Rejections/offers for applications in progress
+- Match based on EXACT company name and similar role
+- Only suggest status changes if the email clearly indicates a status update:
+  * "interview" - if scheduling/confirming interviews, phone screens, or technical rounds
+  * "offer" - if presenting job offers, salary discussions, or congratulating on selection
+  * "rejected" - if explicitly rejecting, saying "unfortunately", or "we regret to inform"
+  * Leave null if email is just informational or doesn't indicate status change
+- When in doubt, return null for matched_job_id to create a new job instead
 
 Respond only with valid JSON:`;
 
