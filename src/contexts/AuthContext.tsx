@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { apiClient } from '../lib/apiClient'
+import { googleTokenManager } from '../lib/tokenManager'
 
 interface AuthContextType {
   user: User | null
@@ -94,8 +95,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session)
         setUser(session?.user ?? null)
         
-        // When user signs in, ensure they exist in our users table
+        // When user signs in, ensure they exist in our users table and store tokens
         if (event === 'SIGNED_IN' && session?.user) {
+          // Store Google tokens if available
+          if (session.provider_token) {
+            const expiresIn = (session as any).provider_expires_at 
+              ? (session as any).provider_expires_at - Math.floor(Date.now() / 1000)
+              : 3600;
+            
+            googleTokenManager.storeTokens(
+              session.provider_token,
+              session.provider_refresh_token || undefined,
+              Math.max(expiresIn, 60)
+            );
+          }
+          
           // Wait a bit for session to be fully ready, then ensure user exists
           setTimeout(async () => {
             try {
@@ -159,6 +173,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear any remaining session data
       setUser(null)
       setSession(null)
+      
+      // Clear Google tokens from token manager
+      googleTokenManager.clearStoredTokens()
       
       // Clear all browser storage
       localStorage.clear()
