@@ -100,15 +100,15 @@ async function syncEmailsForUser(userId, accessToken, options = {}) {
         
         // Check if email is already processed
         const isAlreadyTracked = await isEmailTracked(userId, message.id);
-        console.log(`🔍 Checking if email ${message.id} is already tracked for user ${userId}...`);
+        console.log(`🔍 Checking if email ${message.id} is already processed for user ${userId}...`);
         
         if (isAlreadyTracked) {
-          console.log(`   ✅ Already tracked`);
+          console.log(`   ✅ Already processed (job-related or not), skipping`);
           continue;
         }
 
-        console.log(`   ❌ Not tracked`);
-        console.log(`   ✨ Email ${message.id} is new, processing...`);
+        console.log(`   ❌ Not processed yet`);
+        console.log(`   ✨ Email ${message.id} is new, processing and analyzing...`);
 
         // Get full email content
         const emailContent = await getEmailContent(accessToken, message.id);
@@ -214,7 +214,7 @@ async function fetchEmailsFromGmail(accessToken, options) {
 }
 
 async function isEmailTracked(userId, gmailId) {
-  // First find the email by gmail_message_id, then check if it's tracked
+  // First find the email by gmail_message_id, then check if it's tracked and processed
   const { data: email, error: emailError } = await supabaseAdmin
     .from('emails')
     .select('id')
@@ -231,7 +231,7 @@ async function isEmailTracked(userId, gmailId) {
 
   const { data: tracking, error } = await supabaseAdmin
     .from('email_tracking')
-    .select('id')
+    .select('id, is_processed')
     .eq('user_id', userId)
     .eq('email_id', email.id)
     .single();
@@ -241,7 +241,8 @@ async function isEmailTracked(userId, gmailId) {
     return false;
   }
 
-  return !!tracking;
+  // Return true if tracking exists AND email has been processed
+  return !!tracking && tracking.is_processed === true;
 }
 
 async function getEmailContent(accessToken, messageId) {

@@ -138,6 +138,8 @@ class LLMService {
             console.log(`❌ Failed to create job from email: ${newJobResult.reasoning}`);
           }
         }
+      } else {
+        console.log(`❌ Email is NOT job-related, marked as processed and will be skipped in future syncs`);
       }
 
       console.log(`🎉 Two-step analysis completed:`, finalResult);
