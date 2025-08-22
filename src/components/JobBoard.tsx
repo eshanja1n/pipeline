@@ -25,7 +25,11 @@ const columnTitles: Record<JobStatus, string> = {
   rejected: 'Rejected',
 };
 
-export const JobBoard: React.FC = () => {
+interface JobBoardProps {
+  onNavigate?: (page: 'app' | 'privacy' | 'terms') => void;
+}
+
+export const JobBoard: React.FC<JobBoardProps> = ({ onNavigate }) => {
   const { user, session, signOut } = useAuth();
   const { 
     jobs, 
@@ -378,6 +382,29 @@ export const JobBoard: React.FC = () => {
             </DragOverlay>
           </DndContext>
         )}
+
+        {/* Footer */}
+        <footer className="mt-16 py-8 border-t border-gray-200">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="flex items-center justify-center space-x-6 text-sm text-gray-500">
+              <button
+                onClick={() => onNavigate?.('privacy')}
+                className="hover:text-gray-700 underline cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              <span>•</span>
+              <button
+                onClick={() => onNavigate?.('terms')}
+                className="hover:text-gray-700 underline cursor-pointer"
+              >
+                Terms of Service
+              </button>
+              <span>•</span>
+              <span>© {new Date().getFullYear()} Pipeline</span>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

@@ -6,7 +6,11 @@ import { Logo } from './ui/logo'
 // import { SimpleParticles } from './ui/simple-particles'
 import { Particles } from "./magicui/particles";
 
-export const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  onNavigate?: (page: 'app' | 'privacy' | 'terms') => void;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <Particles 
@@ -64,7 +68,20 @@ export const LoginPage: React.FC = () => {
         
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            By signing in, you agree to our Terms of Service and Privacy Policy
+            By signing in, you agree to our{' '}
+            <button
+              onClick={() => onNavigate?.('terms')}
+              className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+            >
+              Terms of Service
+            </button>
+            {' '}and{' '}
+            <button
+              onClick={() => onNavigate?.('privacy')}
+              className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+            >
+              Privacy Policy
+            </button>
           </p>
         </div>
       </div>
