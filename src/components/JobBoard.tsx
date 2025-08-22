@@ -227,7 +227,7 @@ export const JobBoard: React.FC = () => {
       console.log('✅ Email sync completed:', result);
       
       setSyncMessage(
-        `Sync completed! Found ${result.totalFound} emails, processed ${result.processedCount} new emails.`
+        `Sync completed! Found ${result.totalFound} emails, processed ${result.processedCount} new emails${result.newJobsCreated > 0 ? `, created/updated ${result.newJobsCreated} jobs` : ''}.`
       );
 
       // Refresh jobs after sync in case new ones were created

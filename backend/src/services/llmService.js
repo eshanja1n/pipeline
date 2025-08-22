@@ -389,7 +389,7 @@ ${(email.plain_text_content || email.html_content || '').substring(0, 2000)}
 TASK:
 Analyze this email and respond with a JSON object containing:
 1. "matched_job_id": string or null - ID of the matching job application
-2. "suggested_status": string or null - New status if applicable ("applied", "interview", "offer", "rejected")
+2. "suggested_status": string - New status if applicable ("applied", "interview", "offer", "rejected")
 3. "reasoning": string - Brief explanation of your analysis
 
 GUIDELINES:
@@ -406,12 +406,12 @@ GUIDELINES:
   * Status updates on pending applications
   * Rejections/offers for applications in progress
 - Match based on EXACT company name and similar role
-- Only suggest status changes if the email clearly indicates a status update:
+- For suggested_status, only suggest changes if the email clearly indicates a status update:
   * "interview" - if scheduling/confirming interviews, phone screens, or technical rounds
   * "offer" - if presenting job offers, salary discussions, or congratulating on selection
   * "rejected" - if explicitly rejecting, saying "unfortunately", or "we regret to inform"
-  * Leave null if email is just informational or doesn't indicate status change
-- When in doubt, return null for matched_job_id to create a new job instead
+  * Leave suggested_status the same if email is just informational or doesn't indicate status change
+- For matched_job_id, only return null if this is a NEW job application that should create a new job entry
 
 Respond only with valid JSON:`;
 
