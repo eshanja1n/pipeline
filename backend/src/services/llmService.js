@@ -412,7 +412,7 @@ ${(email.plain_text_content || email.html_content || '').substring(0, 2000)}
 TASK:
 Analyze this email and respond with a JSON object containing:
 1. "matched_job_id": string or null - ID of the matching job application (BE VERY CONSERVATIVE)
-2. "suggested_status": string or null - New status if applicable ("applied", "interview", "offer", "rejected")
+2. "suggested_status": string or null - New status if applicable ("applied", "interview", "offer", "rejected") - BE SPECIFIC about status changes
 3. "reasoning": string - Brief explanation of your analysis
 
 CRITICAL MATCHING RULES:
@@ -444,6 +444,19 @@ MATCHING EXAMPLES:
 - If user has "Data Scientist at Meta" and email says "Application submitted for Data Scientist at Meta" → NO MATCH (new application)
 
 When in doubt, return matched_job_id: null to create a new job entry.
+
+STATUS UPDATE GUIDELINES:
+For suggested_status, be specific about suggesting status changes:
+- "interview" → Email scheduling interviews, confirming interview times, or asking for availability
+- "offer" → Email presenting offers, discussing salary, or congratulating on selection  
+- "rejected" → Email explicitly stating rejection, "unfortunately", or "we regret to inform"
+- null → Only if email is purely informational with no clear status change indication
+
+Examples:
+- "We'd like to schedule an interview" → "interview"
+- "Unfortunately, we've decided to go with another candidate" → "rejected"  
+- "Congratulations! We'd like to extend an offer" → "offer"
+- "Just following up on your application" → null (no clear status change)
 
 Respond only with valid JSON:`;
 
