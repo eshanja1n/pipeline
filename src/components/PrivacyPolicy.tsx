@@ -1,23 +1,18 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
-interface PrivacyPolicyProps {
-  onBack?: () => void;
-}
-
-export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
+export const PrivacyPolicy: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-6">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-6 transition-colors"
-          >
-            <ArrowLeft size={20} />
-            Back to App
-          </button>
-        )}
+        <Link
+          to="/"
+          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 mb-6 transition-colors"
+        >
+          <ArrowLeft size={20} />
+          Back to App
+        </Link>
         
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Privacy Policy</h1>

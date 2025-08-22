@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   DndContext,
   DragEndEvent,
@@ -16,7 +17,7 @@ import { JobColumn } from './JobColumn';
 import { JobCard } from './JobCard';
 import { useJobs } from '../hooks/useJobs';
 import { apiClient } from '../lib/apiClient';
-import { supabase, signInWithGoogleOffline } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 const columnTitles: Record<JobStatus, string> = {
   applied: 'Applied',
@@ -25,11 +26,7 @@ const columnTitles: Record<JobStatus, string> = {
   rejected: 'Rejected',
 };
 
-interface JobBoardProps {
-  onNavigate?: (page: 'app' | 'privacy' | 'terms') => void;
-}
-
-export const JobBoard: React.FC<JobBoardProps> = ({ onNavigate }) => {
+export const JobBoard: React.FC = () => {
   const { user, session, signOut } = useAuth();
   const { 
     jobs, 
@@ -208,15 +205,15 @@ export const JobBoard: React.FC<JobBoardProps> = ({ onNavigate }) => {
       hasProviderRefreshToken: !!session.provider_refresh_token,
       hasRefreshToken: !!session.refresh_token,
       expiresAt: session.expires_at,
-      tokenExpiryTime: session.provider_expires_at ? new Date(session.provider_expires_at * 1000).toISOString() : 'unknown'
+      tokenExpiryTime: (session as any).provider_expires_at ? new Date((session as any).provider_expires_at * 1000).toISOString() : 'unknown'
     });
 
     // Check if we have a valid provider token that hasn't expired
     if (session.provider_token) {
       // Check if token is still valid (if we have expiry info)
-      if (session.provider_expires_at) {
+      if ((session as any).provider_expires_at) {
         const now = Math.floor(Date.now() / 1000);
-        const expiryTime = session.provider_expires_at;
+        const expiryTime = (session as any).provider_expires_at;
         const timeToExpiry = expiryTime - now;
         
         console.log(`🕐 Token expires in ${timeToExpiry} seconds`);
@@ -455,19 +452,19 @@ export const JobBoard: React.FC<JobBoardProps> = ({ onNavigate }) => {
         <footer className="mt-16 py-8 border-t border-gray-200">
           <div className="max-w-7xl mx-auto px-6">
             <div className="flex items-center justify-center space-x-6 text-sm text-gray-500">
-              <button
-                onClick={() => onNavigate?.('privacy')}
+              <Link
+                to="/privacy"
                 className="hover:text-gray-700 underline cursor-pointer"
               >
                 Privacy Policy
-              </button>
+              </Link>
               <span>•</span>
-              <button
-                onClick={() => onNavigate?.('terms')}
+              <Link
+                to="/terms"
                 className="hover:text-gray-700 underline cursor-pointer"
               >
                 Terms of Service
-              </button>
+              </Link>
               <span>•</span>
               <span>© {new Date().getFullYear()} Pipeline</span>
             </div>

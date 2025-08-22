@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '../lib/supabase'
@@ -6,11 +7,7 @@ import { Logo } from './ui/logo'
 // import { SimpleParticles } from './ui/simple-particles'
 import { Particles } from "./magicui/particles";
 
-interface LoginPageProps {
-  onNavigate?: (page: 'app' | 'privacy' | 'terms') => void;
-}
-
-export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
+export const LoginPage: React.FC = () => {
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <Particles 
@@ -69,19 +66,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         <div className="text-center">
           <p className="text-xs text-gray-500">
             By signing in, you agree to our{' '}
-            <button
-              onClick={() => onNavigate?.('terms')}
+            <Link
+              to="/terms"
               className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
             >
               Terms of Service
-            </button>
+            </Link>
             {' '}and{' '}
-            <button
-              onClick={() => onNavigate?.('privacy')}
+            <Link
+              to="/privacy"
               className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
             >
               Privacy Policy
-            </button>
+            </Link>
           </p>
         </div>
       </div>

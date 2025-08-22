@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { JobBoard } from './components/JobBoard';
@@ -7,37 +8,42 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 
-type Page = 'app' | 'privacy' | 'terms';
-
-const AppContent: React.FC = () => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>('app');
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
-  // Handle legal pages navigation
-  if (currentPage === 'privacy') {
-    return <PrivacyPolicy onBack={() => setCurrentPage('app')} />;
-  }
-
-  if (currentPage === 'terms') {
-    return <TermsOfService onBack={() => setCurrentPage('app')} />;
-  }
-
   if (!user) {
-    return <LoginPage onNavigate={setCurrentPage} />;
+    return <LoginPage />;
   }
 
-  return <JobBoard onNavigate={setCurrentPage} />;
+  return <>{children}</>;
+};
+
+const AppContent: React.FC = () => {
+  return (
+    <Routes>
+      <Route path="/" element={
+        <ProtectedRoute>
+          <JobBoard />
+        </ProtectedRoute>
+      } />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 };
 
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
-      <Analytics />
+      <Router>
+        <AppContent />
+        <Analytics />
+      </Router>
     </AuthProvider>
   );
 }
