@@ -71,24 +71,45 @@ class LLMService {
         if (userJobs.length > 0) {
           const jobMatchResult = await this.matchEmailToJob(email, userJobs);
           
+          // Additional safety check: validate the match makes sense
           if (jobMatchResult.matched_job_id) {
-            console.log(`✅ Matched email to job: ${jobMatchResult.matched_job_id}`);
-            
-            // Always link email to the matched job
-            await this.updateEmailAnalysis(emailTrackingId, {
-              job_id: jobMatchResult.matched_job_id
-            });
-            
-            finalResult.job_match = jobMatchResult;
-            
-            // Update the job status if suggested
-            if (jobMatchResult.suggested_status) {
-              await this.updateJobStatus(jobMatchResult.matched_job_id, jobMatchResult.suggested_status, userId);
-              console.log(`📝 Updated job ${jobMatchResult.matched_job_id} status to: ${jobMatchResult.suggested_status}`);
-              finalResult.job_updated = true;
+            const matchedJob = userJobs.find(job => job.id === jobMatchResult.matched_job_id);
+            if (!matchedJob) {
+              console.log(`❌ Invalid job match: Job ID ${jobMatchResult.matched_job_id} not found in user's jobs`);
+              // Treat as no match and create new job
+              console.log(`🆕 Creating new job instead...`);
+              const newJobResult = await this.createJobFromEmail(email, userId);
+              if (newJobResult.success) {
+                console.log(`✅ Created new job: ${newJobResult.job_id}`);
+                await this.updateEmailAnalysis(emailTrackingId, {
+                  job_id: newJobResult.job_id
+                });
+                finalResult.job_match = {
+                  matched_job_id: newJobResult.job_id,
+                  suggested_status: newJobResult.status,
+                  reasoning: `Invalid match rejected, created new job: ${newJobResult.reasoning}`
+                };
+                finalResult.job_updated = true;
+              }
             } else {
-              console.log(`📋 Email linked to job but no status update suggested`);
-              finalResult.job_updated = false;
+              console.log(`✅ Matched email to job: ${jobMatchResult.matched_job_id} (${matchedJob.company} - ${matchedJob.role})`);
+              
+              // Always link email to the matched job
+              await this.updateEmailAnalysis(emailTrackingId, {
+                job_id: jobMatchResult.matched_job_id
+              });
+              
+              finalResult.job_match = jobMatchResult;
+              
+              // Update the job status if suggested
+              if (jobMatchResult.suggested_status) {
+                await this.updateJobStatus(jobMatchResult.matched_job_id, jobMatchResult.suggested_status, userId);
+                console.log(`📝 Updated job ${jobMatchResult.matched_job_id} status to: ${jobMatchResult.suggested_status}`);
+                finalResult.job_updated = true;
+              } else {
+                console.log(`📋 Email linked to job but no status update suggested`);
+                finalResult.job_updated = false;
+              }
             }
           } else {
             console.log(`ℹ️ No matching job found for this email`);
@@ -390,30 +411,39 @@ ${(email.plain_text_content || email.html_content || '').substring(0, 2000)}
 
 TASK:
 Analyze this email and respond with a JSON object containing:
-1. "matched_job_id": string or null - ID of the matching job application
-2. "suggested_status": string - New status if applicable ("applied", "interview", "offer", "rejected")
+1. "matched_job_id": string or null - ID of the matching job application (BE VERY CONSERVATIVE)
+2. "suggested_status": string or null - New status if applicable ("applied", "interview", "offer", "rejected")
 3. "reasoning": string - Brief explanation of your analysis
 
-GUIDELINES:
-- ONLY match if the email is clearly about an EXISTING job application that the user already has in their list
-- DO NOT match if the email is about a NEW job application, even if company/role seem similar
-- Look for these indicators of NEW applications (should NOT match):
-  * "your application was sent"
-  * "we received your application" 
-  * "thank you for applying"
-  * "application submitted"
-  * Recent application confirmations
-- Only match for follow-ups to existing applications:
-  * Interview scheduling for jobs already applied to
-  * Status updates on pending applications
-  * Rejections/offers for applications in progress
-- Match based on EXACT company name and similar role
-- For suggested_status, only suggest changes if the email clearly indicates a status update:
-  * "interview" - if scheduling/confirming interviews, phone screens, or technical rounds
-  * "offer" - if presenting job offers, salary discussions, or congratulating on selection
-  * "rejected" - if explicitly rejecting, saying "unfortunately", or "we regret to inform"
-  * Leave suggested_status the same if email is just informational or doesn't indicate status change
-- For matched_job_id, only return null if this is a NEW job application that should create a new job entry
+CRITICAL MATCHING RULES:
+⚠️ DEFAULT TO NO MATCH (null) UNLESS YOU ARE 100% CERTAIN ⚠️
+
+ONLY return a matched_job_id if ALL of these conditions are met:
+1. EXACT company name match (not similar, EXACT)
+2. EXACT or very similar role/position match
+3. Email is clearly a FOLLOW-UP to an existing application (not a new application)
+4. Email references the specific job/application the user already has
+
+ALWAYS return null (no match) for:
+❌ NEW job applications (even if company/role seem similar to existing jobs)
+❌ Application confirmations ("thank you for applying", "application received", etc.)
+❌ First-time contact from a company
+❌ Generic job-related emails that don't reference a specific existing application
+❌ Emails from recruiting platforms or job boards
+❌ Any uncertainty about whether this relates to an existing application
+
+ONLY match for these follow-up scenarios:
+✅ Interview scheduling that clearly references an existing application
+✅ "Update on your application for [exact role] at [exact company]"
+✅ Rejection emails that specifically mention the role you applied for
+✅ Offer emails for positions you already have in your tracking list
+
+MATCHING EXAMPLES:
+- If user has "Software Engineer at Google" and email says "Interview for Software Engineer position at Google" → MATCH
+- If user has "Backend Engineer at Apple" and email says "Thank you for applying to Frontend Engineer at Apple" → NO MATCH (different role + new application)
+- If user has "Data Scientist at Meta" and email says "Application submitted for Data Scientist at Meta" → NO MATCH (new application)
+
+When in doubt, return matched_job_id: null to create a new job entry.
 
 Respond only with valid JSON:`;
 
